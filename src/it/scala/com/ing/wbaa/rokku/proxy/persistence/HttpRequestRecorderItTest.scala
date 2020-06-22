@@ -13,16 +13,18 @@ import com.ing.wbaa.rokku.proxy.RokkuS3Proxy
 import com.ing.wbaa.rokku.proxy.config.{HttpSettings, KafkaSettings, StorageS3Settings}
 import com.ing.wbaa.rokku.proxy.data._
 import com.ing.wbaa.rokku.proxy.handler.parsers.RequestParser
-import com.ing.wbaa.rokku.proxy.handler.{FilterRecursiveListBucketHandler, RequestHandlerS3}
+import com.ing.wbaa.rokku.proxy.handler.{FilterRecursiveListBucketHandler, RequestHandlerS3Cache}
 import com.ing.wbaa.rokku.proxy.provider.{AuditLogProvider, MessageProviderKafka, SignatureProviderAws}
 import com.ing.wbaa.rokku.proxy.queue.MemoryUserRequestQueue
 import com.ing.wbaa.testkit.RokkuFixtures
-import org.scalatest.{Assertion, AsyncWordSpec, DiagrammedAssertions}
+import org.scalatest.Assertion
+import org.scalatest.diagrams.Diagrams
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class HttpRequestRecorderItTest extends AsyncWordSpec with DiagrammedAssertions with RokkuFixtures {
+class HttpRequestRecorderItTest extends AsyncWordSpec with Diagrams with RokkuFixtures {
   implicit val testSystem: ActorSystem = ActorSystem.create("test-system")
   implicit val mat: ActorMaterializer = ActorMaterializer()
 
@@ -32,7 +34,7 @@ class HttpRequestRecorderItTest extends AsyncWordSpec with DiagrammedAssertions 
   }
 
   def withS3SdkToMockProxy(testCode: AmazonS3 => Assertion): Future[Assertion] = {
-    val proxy: RokkuS3Proxy = new RokkuS3Proxy with RequestHandlerS3 with SignatureProviderAws
+    val proxy: RokkuS3Proxy = new RokkuS3Proxy with RequestHandlerS3Cache with SignatureProviderAws
       with FilterRecursiveListBucketHandler with MessageProviderKafka with AuditLogProvider with MemoryUserRequestQueue with RequestParser {
       override implicit lazy val system: ActorSystem = testSystem
       override val httpSettings: HttpSettings = rokkuHttpSettings
@@ -72,22 +74,16 @@ class HttpRequestRecorderItTest extends AsyncWordSpec with DiagrammedAssertions 
   "S3 Proxy" should {
     s"with Request Recorder" that {
       "persists requests in Cassandra" in withS3SdkToMockProxy { sdk =>
-
-        // just to make fake request
-        sdk.createBucket("testbucket")
-        Thread.sleep(6000)
-
-        val storedInCassandraF = queries.currentEventsByPersistenceId(CHECKER_PERSISTENCE_ID, 1L, Long.MaxValue)
-          .map(_.event)
-          .runWith(Sink.seq)
-          .mapTo[Seq[ExecutedRequestEvt]]
-
-        val r = Await.result(storedInCassandraF, 5.seconds)
-
-        assert(r.size == 1)
-        assert(r.head.userSTS.userName.value == "userId")
-
-
+        withBucket(sdk) { bucketName =>
+          Thread.sleep(6000)
+          val storedInCassandraF = queries.currentEventsByPersistenceId(CHECKER_PERSISTENCE_ID, 1L, Long.MaxValue)
+            .map(_.event)
+            .runWith(Sink.seq)
+            .mapTo[Seq[ExecutedRequestEvt]]
+          val r = Await.result(storedInCassandraF, 5.seconds).filter(_.httpRequest.getUri().toString.contains(bucketName))
+          assert(r.size == 1)
+          assert(r.head.userSTS.userName.value == "userId")
+        }
       }
     }
   }

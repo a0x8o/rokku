@@ -1,9 +1,10 @@
 package com.ing.wbaa.rokku.proxy.data
 
 import akka.http.scaladsl.model.{ HttpMethods, MediaTypes, RemoteAddress, Uri }
-import org.scalatest.{ DiagrammedAssertions, FlatSpec }
+import org.scalatest.diagrams.Diagrams
+import org.scalatest.flatspec.AnyFlatSpec
 
-class S3RequestSpec extends FlatSpec with DiagrammedAssertions {
+class S3RequestSpec extends AnyFlatSpec with Diagrams {
 
   val testCred = AwsRequestCredential(AwsAccessKey("ak"), Some(AwsSessionToken("st")))
 
@@ -34,7 +35,7 @@ class S3RequestSpec extends FlatSpec with DiagrammedAssertions {
 
   it should "set access to write for anything but GET" in {
     val result = S3Request(testCred, Uri.Path("/demobucket"), HttpMethods.POST, RemoteAddress.Unknown, HeaderIPs(), MediaTypes.`text/plain`)
-    assert(result == S3Request(testCred, Some("/demobucket"), None, Write("POST")))
+    assert(result == S3Request(testCred, Some("/demobucket"), None, Post("POST")))
   }
 
 }
