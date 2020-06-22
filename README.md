@@ -105,8 +105,16 @@ before diving in here. That will introduce you to the various components used.
     > NOTE: This session expires at the expiration date specified by the STS service. You'll need to repeat these steps
     > everytime your session expires.
 
+<<<<<<< HEAD
 4. Technically you're now able to use the aws cli to perform any commands through Rokku to S3. Since the authorisation is completely handled by ranger, authorization in Ceph
    should be removed to avoid conflicts. For this reason, Rokku uses NPA which must be manually configured as `system` user:
+=======
+4. Technically you're now able to use the aws cli to perform any commands through Rokku to S3. Rokku automatically
+   creates the user on Ceph for you. Since the authorisation is completely handled by ranger, authorization in Ceph
+   should be removed to avoid conflicts. For this reason, Rokku sets the proper bucket ACL immediately after the
+   bucket creation, so that every authenticated user can perform read and write operations on each bucket.
+   In order to create new users and set the bucket ACL, the Rokku NPA must be manually configured as `system` user:
+>>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
 
             docker-compose exec ceph radosgw-admin user modify --uid ceph-admin --system
 
@@ -117,7 +125,11 @@ before diving in here. That will introduce you to the various components used.
 
    **!BOOM!** What happened?!
 
+<<<<<<< HEAD
    Well, your policy in Ranger only allows you to read objects from the `demobucket`. So we'll need to allow to write as
+=======
+   Well, your policy in Ranger only allows you to read objects from the `demobucket`. So we'll need to allow a write as
+>>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
    well.
 
    1. Go to Ranger on [http://localhost:6080](http://localhost:6080) and login with `admin:admin`.
@@ -132,6 +144,19 @@ before diving in here. That will introduce you to the various components used.
         aws s3api list-objects --bucket demobucket
         aws s3api get-object --bucket demobucket --key SOME_FILE SOME_TARGET_FILE
 
+<<<<<<< HEAD
+=======
+# Difference between the proxy and Ceph
+
+1. Ceph allows only list all your own buckets. We need to see all buckets by all users so the functionality is modified.
+
+But the functionality is separated in the class
+[ProxyServiceWithListAllBuckets](https://github.com/ing-bank/rokku/blob/master/src/main/scala/com/ing/wbaa/rokku/proxy/api/ProxyServiceWithListAllBuckets.scala)
+so if you want to have standard behaviour use
+the [ProxyService](https://github.com/ing-bank/Rokku/blob/master/src/main/scala/com/ing/wbaa/rokku/proxy/api/ProxyService.scala)
+in [RokkuS3Proxy](https://github.com/ing-bank/rokku/blob/master/src/main/scala/com/ing/wbaa/rokku/proxy/rokkuS3Proxy.scala)
+
+>>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
 # Verified AWS clients
 
 We've currently verified that the following set of AWS clients work with Rokku:
@@ -190,9 +215,15 @@ rokku {
 ```
 
 As alternative environment value `ROKKU_ATLAS_ENABLED` should be set to true.
+<<<<<<< HEAD
 
 Lineage is done according to model
 
+=======
+
+Lineage is done according following model
+
+>>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
 ![alt text](./docs/img/atlas_model.jpg)
 
 To check lineage that has been created, login to Atlas web UI console, [default url](http://localhost:21000) with
@@ -225,6 +256,30 @@ and configure kafka and topic names:
         kafka.producer.createTopic = ${?ROKKU_KAFKA_CREATE_TOPIC}
         kafka.producer.deleteTopic = ${?ROKKU_KAFKA_DELETE_TOPIC}
 ```
+
+# Enable and configure cache
+
+Currently test cache support based on Hazelcast has been added. Following steps needs to be
+done to enable and configure cache:
+
+- enable cache using application.conf or ENV value (`ROKKU_STORAGE_S3_CACHE_ENABLED`)
+- provide hazelcast configuration file (either xml or yaml). If not provided default
+configuration will be used from Hazelcast jar
+
+In order to provide configuration file while using sbt, set SBT_OPTS:
+
+```
+$ export SBT_OPTS="-Dhazelcast.config=./hazelcast.xml"
+```
+
+or if using with docker image provide environment value to docker run:
+
+```
+-e JAVA_OPTS="-Dhazelcast.config=/opt/hazelcast/config_ext/hazelcast.xml" -v PATH_TO_LOCAL_CONFIG_FOLDER:/opt/hazelcast/config_ext
+```
+
+Sample yaml configuration file can be found here: [hazelcast.yaml](./hazelcast.yaml)
+
 
 # Setting Up AWS CLI
 

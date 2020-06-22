@@ -1,8 +1,12 @@
 package com.ing.wbaa.rokku.proxy.metrics
 
 import akka.http.scaladsl.model.{ HttpMethod, HttpMethods }
+<<<<<<< HEAD
 import com.codahale.metrics.MetricRegistry
 import com.codahale.metrics.jmx.JmxReporter
+=======
+import com.codahale.metrics.{ JmxReporter, MetricRegistry }
+>>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
 
 object MetricsFactory {
 
@@ -23,12 +27,15 @@ object MetricsFactory {
   val OBJECTS_UPLOAD_OPERATIONS_TOTAL = s"requests.method.$HTTP_METHOD.operations.total"
   val KAFKA_SENT_NOTIFICATION_TOTAL = "requests.kafka.notification.sent.total"
   val KAFKA_SENT_NOTIFICATION_ERROR_TOTAL = "requests.kafka.notification.sent.errors.total"
+<<<<<<< HEAD
   val REQUEST_STORAGE_TIME = "request.storage.nanoseconds.total"
   val REQUEST_STORAGE_TIME_HIST = "request.storage.time.histogram"
   val REQUEST_STORAGE_TOTAL = "request.storage.total"
   val REQUEST_BUCKET_NAMESPACES_SEARCH_TOTAL = "request.bucket_namespaces.search.total"
   val REQUEST_BUCKET_NAMESPACES_CACHE_HIT_TOTAL = "request.bucket_namespaces.in.cache.total"
   val REQUEST_BUCKET_NAMESPACES_NOT_FOUND_TOTAL = "request.bucket_namespaces.not.found.total"
+=======
+>>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
 
   private[this] val metrics = new MetricRegistry()
   JmxReporter.forRegistry(metrics).inDomain("rokku").build.start()
@@ -77,6 +84,7 @@ object MetricsFactory {
   def incrementKafkaSendErrors(): Unit = {
     metrics.counter(KAFKA_SENT_NOTIFICATION_ERROR_TOTAL).inc()
   }
+<<<<<<< HEAD
 
   def markRequestStorageTime(time: Long): Unit = {
     metrics.counter(REQUEST_STORAGE_TIME).inc(time)
@@ -95,4 +103,6 @@ object MetricsFactory {
   def incrementBucketNamespacesNotFound(): Unit = {
     metrics.counter(REQUEST_BUCKET_NAMESPACES_NOT_FOUND_TOTAL).inc()
   }
+=======
+>>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
 }

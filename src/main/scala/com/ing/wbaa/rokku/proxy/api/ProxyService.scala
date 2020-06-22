@@ -59,6 +59,7 @@ trait ProxyService {
         complete(StatusCodes.MethodNotAllowed -> AwsErrorCodes.response(StatusCodes.MethodNotAllowed))
     }
 
+<<<<<<< HEAD
   val proxyServiceRoute: Route = {
     handleExceptions(rokkuExceptionHandler) {
       metricDuration {
@@ -86,6 +87,34 @@ trait ProxyService {
                   logger.error("An error occurred when checking credentials with STS service ex={} (response time {})", exception, System.nanoTime() - requestStartTime)
                   complete(returnStatusCode -> AwsErrorCodes.response(returnStatusCode))
               }
+=======
+  val proxyServiceRoute: Route =
+
+    metricDuration {
+      implicit val requestId: RequestId = RequestId(UUID.randomUUID().toString)
+      withoutSizeLimit {
+        extractRequest { httpRequest =>
+          extracts3Request { s3Request =>
+            val requestStartTime = System.nanoTime()
+            onComplete(areCredentialsActive(s3Request.credential)) {
+              case Success(Some(userSTS: User)) =>
+                logger.info("STS credentials active for request, user retrieved: {} (response time {})", userSTS, System.nanoTime() - requestStartTime)
+                onComplete(processRequestForValidUser(httpRequest, s3Request, userSTS)) {
+                  case Success(r) => r
+                  case Failure(exception) =>
+                    implicit val returnStatusCode: StatusCodes.ClientError = StatusCodes.Forbidden
+                    logger.error("An error occurred while processing request for valid user ex={}", exception)
+                    complete(returnStatusCode -> AwsErrorCodes.response(returnStatusCode))
+                }
+              case Success(None) =>
+                implicit val returnStatusCode: StatusCodes.ClientError = StatusCodes.Forbidden
+                logger.warn("STS credentials not active: {} (response time {})", s3Request, System.nanoTime() - requestStartTime)
+                complete(returnStatusCode -> AwsErrorCodes.response(returnStatusCode))
+              case Failure(exception) =>
+                implicit val returnStatusCode: StatusCodes.ServerError = StatusCodes.InternalServerError
+                logger.error("An error occurred when checking credentials with STS service ex={} (response time {})", exception, System.nanoTime() - requestStartTime)
+                complete(returnStatusCode -> AwsErrorCodes.response(returnStatusCode))
+>>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
             }
           }
         }

@@ -7,7 +7,10 @@ class RangerSettings(config: Config) extends Extension {
   val serviceType: String = config.getString("rokku.ranger.service_type")
   val appId: String = config.getString("rokku.ranger.app_id")
   val listBucketsEnabled: Boolean = config.getBoolean("rokku.ranger.allow-list-buckets")
+<<<<<<< HEAD
   val createDeleteBucketsEnabled: Boolean = config.getBoolean("rokku.ranger.allow-create-delete-buckets")
+=======
+>>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
   val userDomainPostfix: String = config.getString("rokku.ranger.user-domain-postfix")
   val auditEnabled: Boolean = config.getBoolean("rokku.ranger.enabled-audit")
   val rolePrefix: String = config.getString("rokku.ranger.role-prefix")

@@ -68,6 +68,7 @@ object ProxyDirectives extends LazyLogging {
               headerValue[AwsAccessKey](extractAuthorizationS3) tmap { case Tuple1(awsAccessKey) =>
 
 <<<<<<< HEAD
+<<<<<<< HEAD
                 // aws is passing subdir in prefix parameter if no object is used, eg. list bucket objects
                 val s3path = S3Utils.getS3FullPathWithBucketName(httpRequest)
 =======
@@ -95,6 +96,10 @@ object ProxyDirectives extends LazyLogging {
                   case _         => Uri.Path(s"$pathName")
                 }
 >>>>>>> 5cfe623 (Merge pull request #98 from ing-bank/feature/virual-hosted-style)
+=======
+                // aws is passing subdir in prefix parameter if no object is used, eg. list bucket objects
+                val s3path = S3Utils.getS3FullPathWithBucketName(httpRequest)
+>>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
                 val s3Request = S3Request(
                   AwsRequestCredential(awsAccessKey, optionalSessionToken.map(AwsSessionToken)),
                   s3path,

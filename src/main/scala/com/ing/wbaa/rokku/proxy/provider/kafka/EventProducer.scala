@@ -45,11 +45,19 @@ trait EventProducer {
       .send(new ProducerRecord[String, String](topic, event), (metadata: RecordMetadata, exception: Exception) => {
         exception match {
           case e: Exception =>
+<<<<<<< HEAD
             MetricsFactory.incrementKafkaSendErrors()
             logger.error("error in sending event {} to topic {}, error={}", event, topic, e)
             throw new Exception(e)
           case _ =>
             httpMethod.foreach { m => MetricsFactory.incrementKafkaNotificationsSent(m) }
+=======
+            MetricsFactory.incrementKafkaSendErrors
+            logger.error("error in sending event {} to topic {}, error={}", event, topic, e)
+            throw new Exception(e)
+          case _ =>
+            httpMethod.map { m => MetricsFactory.incrementKafkaNotificationsSent(m) }
+>>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
             logger.debug("Message sent {} to kafka, offset {}", event, metadata.offset())
         }
       }) match {

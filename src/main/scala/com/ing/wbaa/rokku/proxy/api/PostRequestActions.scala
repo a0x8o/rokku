@@ -6,6 +6,10 @@ import com.ing.wbaa.rokku.proxy.data._
 import com.ing.wbaa.rokku.proxy.handler.LoggerHandlerWithId
 import com.ing.wbaa.rokku.proxy.handler.parsers.RequestParser.AWSRequestType
 import com.ing.wbaa.rokku.proxy.metrics.MetricsFactory
+<<<<<<< HEAD
+=======
+import com.ing.wbaa.rokku.proxy.util.S3Utils
+>>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.{ ExecutionContext, Future }
@@ -21,6 +25,11 @@ trait PostRequestActions {
 
   protected[this] def emitEvent(s3Request: S3Request, method: HttpMethod, principalId: String, awsRequest: AWSRequestType)(implicit id: RequestId): Future[Done]
 
+<<<<<<< HEAD
+=======
+  protected[this] def setDefaultBucketAclAndPolicy(bucketName: String)(implicit id: RequestId): Future[Unit]
+
+>>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
   protected[this] def awsRequestFromRequest(request: HttpRequest): AWSRequestType
 
   private[this] def createBucketNotification(response: HttpResponse, httpRequest: HttpRequest, s3Request: S3Request,
@@ -32,6 +41,22 @@ trait PostRequestActions {
       case _ => Future.successful(Done)
     }
 
+<<<<<<< HEAD
+=======
+  private[this] def updateBucketPermissions(httpRequest: HttpRequest, s3Request: S3Request)(implicit id: RequestId): Future[Done] = {
+    val fullPath = S3Utils.getPathNameFromUrlOrHost(httpRequest)
+    val bucketName = S3Utils.getBucketName(fullPath)
+    logger.debug("trying updateBucketPermissions for bucket={}, fullPath={}", bucketName, fullPath)
+    val isPathOnlyWithBucketName = fullPath.split("/").length == 2
+    if (httpRequest.method == HttpMethods.PUT && isPathOnlyWithBucketName) {
+      setDefaultBucketAclAndPolicy(bucketName) map (_ => Done)
+    } else {
+      logger.debug("not create bucket command so updateBucketPermissions is not needed")
+      Future.successful(Done)
+    }
+  }
+
+>>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
   protected[this] def handlePostRequestActions(response: HttpResponse, httpRequest: HttpRequest, s3Request: S3Request, userSTS: User)(implicit id: RequestId): Unit = {
     val notification = createBucketNotification(response, httpRequest, s3Request, userSTS)
 
