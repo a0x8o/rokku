@@ -2,8 +2,12 @@ package com.ing.wbaa.rokku.proxy.handler
 
 import akka.http.scaladsl.model.{ StatusCode, StatusCodes }
 import com.ing.wbaa.rokku.proxy.data.RequestId
+import com.ing.wbaa.rokku.proxy.metrics.MetricsFactory
+import com.ing.wbaa.rokku.proxy.metrics.MetricsFactory._
 import com.typesafe.scalalogging.Logger
 import org.slf4j.{ LoggerFactory, MDC }
+
+import scala.collection.mutable
 
 class LoggerHandlerWithId {
 
@@ -16,20 +20,27 @@ class LoggerHandlerWithId {
 
   def debug(message: String, args: Any*)(implicit id: RequestId): Unit = {
     MDC.put(requestIdKey, id.value)
-    log.debug(message, args)
+    MDC.put(statusCodeKey, "-")
+    log.debug(message, args.asInstanceOf[mutable.WrappedArray[AnyRef]]: _*)
     MDC.remove(requestIdKey)
+    MDC.remove(statusCodeKey)
   }
 
   def info(message: String, args: Any*)(implicit id: RequestId): Unit = {
     MDC.put(requestIdKey, id.value)
-    log.info(message, args)
+    MDC.put(statusCodeKey, "-")
+    log.info(message, args.asInstanceOf[mutable.WrappedArray[AnyRef]]: _*)
     MDC.remove(requestIdKey)
+    MDC.remove(statusCodeKey)
   }
 
   def warn(message: String, args: Any*)(implicit id: RequestId, statusCode: StatusCode = StatusCodes.Continue): Unit = {
     MDC.put(requestIdKey, id.value)
     MDC.put(statusCodeKey, statusCode.value)
-    log.warn(message, args)
+    if (args.isInstanceOf[mutable.WrappedArray[_]])
+      log.warn(message, args.asInstanceOf[mutable.WrappedArray[AnyRef]]: _*)
+    else
+      log.warn(message, args.asInstanceOf[scala.collection.immutable.$colon$colon[AnyRef]]: _*)
     MDC.remove(requestIdKey)
     MDC.remove(statusCodeKey)
   }
@@ -37,7 +48,11 @@ class LoggerHandlerWithId {
   def error(message: String, args: Any*)(implicit id: RequestId, statusCode: StatusCode = StatusCodes.Continue): Unit = {
     MDC.put(requestIdKey, id.value)
     MDC.put(statusCodeKey, statusCode.value)
-    log.error(message, args)
+    countLogErrors(MetricsFactory.ERROR_REPORTED_TOTAL)
+    if (args.isInstanceOf[mutable.WrappedArray[_]])
+      log.error(message, args.asInstanceOf[mutable.WrappedArray[AnyRef]]: _*)
+    else
+      log.error(message, args.asInstanceOf[scala.collection.immutable.$colon$colon[AnyRef]]: _*)
     MDC.remove(requestIdKey)
     MDC.remove(statusCodeKey)
   }

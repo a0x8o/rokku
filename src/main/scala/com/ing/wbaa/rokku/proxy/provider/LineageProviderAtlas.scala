@@ -9,7 +9,7 @@ import com.ing.wbaa.rokku.proxy.data._
 import com.ing.wbaa.rokku.proxy.handler.FilterRecursiveMultiDelete.exctractMultideleteObjectsFlow
 import com.ing.wbaa.rokku.proxy.handler.LoggerHandlerWithId
 import com.ing.wbaa.rokku.proxy.provider.atlas.LineageHelpers
-import com.ing.wbaa.rokku.proxy.provider.atlas.ModelKafka.bucketEntity
+import com.ing.wbaa.rokku.proxy.provider.atlas.ModelKafka.createBucketEntity
 
 import scala.concurrent.Future
 
@@ -18,6 +18,8 @@ trait LineageProviderAtlas extends LineageHelpers {
   protected[this] implicit def system: ActorSystem
 
   private val logger = new LoggerHandlerWithId
+
+  private val whitelistUserAgents = system.settings.config.getString("rokku.atlas.whitelistUserAgentSplitByComma").trim.split(",")
 
   def createLineageFromRequest(httpRequest: HttpRequest, userSTS: User, userIPs: UserIps)(implicit id: RequestId): Future[Done] = {
     val lineageHeaders = getLineageHeaders(httpRequest)
@@ -29,11 +31,13 @@ trait LineageProviderAtlas extends LineageHelpers {
 
     val extractObjectFromPath = bucketObject.getOrElse("").split("/").takeRight(1).mkString
 
-    if (lineageHeaders.bucket.length > 1) {
+    val isClientTypeWhitelisted = whitelistUserAgents.contains(lineageHeaders.clientType.getOrElse("").toLowerCase())
+
+    if (lineageHeaders.bucket.length > 1 && isClientTypeWhitelisted) {
       lineageHeaders.method match {
         // mb bucket
         case HttpMethods.PUT if !lineageHeaders.bucket.isEmpty && pseudoDir.isEmpty && bucketObject.isEmpty =>
-          createSingleEntity(lineageHeaders.bucket, userSTS, bucketEntity(lineageHeaders.bucket, userSTS.userName.value, System.nanoTime(), lineageHeaders.classifications.getOrElse(BucketClassification(), List.empty)))
+          createSingleEntity(lineageHeaders.bucket, userSTS, createBucketEntity(lineageHeaders.bucket, userSTS.userName.value, System.nanoTime(), lineageHeaders.classifications.getOrElse(BucketClassification(), List.empty)))
 
         // rm bucket
         case HttpMethods.DELETE if !lineageHeaders.bucket.isEmpty && pseudoDir.isEmpty && bucketObject.isEmpty =>
@@ -47,12 +51,12 @@ trait LineageProviderAtlas extends LineageHelpers {
         // put object from outside of ceph
         case HttpMethods.PUT if lineageHeaders.queryParams.isEmpty && lineageHeaders.copySource.isEmpty && (pseudoDir.isDefined || bucketObject.isDefined) =>
           val externalObject = s"$EXTERNAL_OBJECT_IN/${bucketObject.getOrElse(pseudoDir.get).split("/").takeRight(1).mkString}"
-          readOrWriteLineage(lineageHeaders, userSTS, Write(), userIPs, Some(externalObject))
+          readOrWriteLineage(lineageHeaders, userSTS, Put(), userIPs, Some(externalObject))
 
         // put object - copy
         // if contains header x-amz-copy-source
         case HttpMethods.PUT if lineageHeaders.copySource.getOrElse("").length > 0 && (pseudoDir.isDefined || bucketObject.isDefined) =>
-          lineageForCopyOperation(lineageHeaders, userSTS, Write(), userIPs)
+          lineageForCopyOperation(lineageHeaders, userSTS, Put(), userIPs)
 
         // multidelete by POST
         case HttpMethods.POST if isMultideletePost =>
@@ -65,7 +69,7 @@ trait LineageProviderAtlas extends LineageHelpers {
         // aws request eg. POST /ObjectName?uploadId=UploadId and content-type application/xml
         case HttpMethods.POST if lineageHeaders.queryParams.getOrElse("").contains("uploadId") && bucketObject.isDefined =>
           val externalObject = s"$EXTERNAL_OBJECT_IN/$extractObjectFromPath"
-          readOrWriteLineage(lineageHeaders, userSTS, Write(), userIPs, Some(externalObject))
+          readOrWriteLineage(lineageHeaders, userSTS, Post(), userIPs, Some(externalObject))
 
         // delete object
         case HttpMethods.DELETE if lineageHeaders.queryParams.isEmpty && (pseudoDir.isDefined || bucketObject.isDefined) =>

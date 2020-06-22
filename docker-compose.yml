@@ -19,10 +19,10 @@ services:
     command: demo
 
   postgres-server:
-    image: wbaa/rokku-dev-apache-ranger-postgres:0.0.17
+    image: wbaa/rokku-dev-apache-ranger-postgres:0.0.21
 
   ranger-admin:
-    image: wbaa/rokku-dev-apache-ranger:0.0.19
+    image: wbaa/rokku-dev-apache-ranger:0.0.21
     stdin_open: true
     tty: true
     depends_on:
@@ -32,7 +32,7 @@ services:
       - "6080:6080"
 
   rokku-sts:
-    image: wbaa/rokku-sts:0.3.0
+    image: wbaa/rokku-sts:0.3.4
     environment:
       - STS_HOST=0.0.0.0
       - STS_PORT=12345
@@ -48,10 +48,11 @@ services:
       - "mariadb"
 
   keycloak:
-    image: wbaa/rokku-dev-keycloak:0.0.6
+    image: wbaa/rokku-dev-keycloak:0.0.8
     environment:
       - KEYCLOAK_USER=admin
       - KEYCLOAK_PASSWORD=admin
+      - DB_VENDOR=h2
     ports:
       - "8080:8080"
 
@@ -71,24 +72,31 @@ services:
       - 3307:3306
 
   zookeeper:
-    image: wurstmeister/zookeeper
+    image: confluentinc/cp-zookeeper:5.4.0
     hostname: zookeeper
+    container_name: zookeeper
     ports:
       - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
 
   kafka:
-    container_name: kafka
-    image: wurstmeister/kafka
-    ports:
-      - "9092:9092"
+    image: confluentinc/cp-kafka:5.4.0
     hostname: kafka
-    environment:
-      KAFKA_CREATE_TOPICS: "create_events:1:1,delete_events:1:1,ATLAS_HOOK:1:1"
-      KAFKA_ADVERTISED_HOST_NAME: kafka
-      KAFKA_ADVERTISED_PORT: 9092
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+    container_name: kafka
     depends_on:
       - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
 
   cassandra:
     image: cassandra:3
@@ -97,3 +105,7 @@ services:
       - "9042:9042"
       - "9160:9160"
 
+  cache-management:
+    image:  hazelcast/management-center
+    ports:
+      - 8081:8080

@@ -1,10 +1,11 @@
 package com.ing.wbaa.rokku.proxy.provider.kafka
 
 import akka.Done
-import akka.stream.ActorMaterializer
+import akka.http.scaladsl.model.HttpMethod
 import com.ing.wbaa.rokku.proxy.config.KafkaSettings
 import com.ing.wbaa.rokku.proxy.data.RequestId
 import com.ing.wbaa.rokku.proxy.handler.LoggerHandlerWithId
+import com.ing.wbaa.rokku.proxy.metrics.MetricsFactory
 import org.apache.kafka.clients.CommonClientConfigs
 import org.apache.kafka.clients.producer.{ KafkaProducer, ProducerConfig, ProducerRecord, RecordMetadata }
 import org.apache.kafka.common.serialization.StringSerializer
@@ -19,8 +20,6 @@ trait EventProducer {
 
   protected[this] implicit val kafkaSettings: KafkaSettings
 
-  protected[this] implicit val materializer: ActorMaterializer
-
   protected[this] implicit val executionContext: ExecutionContext
 
   private lazy val config: Map[String, Object] =
@@ -31,6 +30,7 @@ trait EventProducer {
       ProducerConfig.RECONNECT_BACKOFF_MAX_MS_CONFIG -> kafkaSettings.retriesBackOffMax,
       CommonClientConfigs.SECURITY_PROTOCOL_CONFIG -> kafkaSettings.protocol,
       ProducerConfig.MAX_BLOCK_MS_CONFIG -> kafkaSettings.maxblock,
+      ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG -> kafkaSettings.requestTimeoutMs,
       "ssl.truststore.location" -> kafkaSettings.sslTruststoreLocation,
       "ssl.truststore.password" -> kafkaSettings.sslTruststorePassword,
       "ssl.keystore.location" -> kafkaSettings.sslKeystoreLocation,
@@ -40,14 +40,17 @@ trait EventProducer {
 
   private lazy val kafkaProducer: KafkaProducer[String, String] = new KafkaProducer(config.asJava, new StringSerializer, new StringSerializer)
 
-  def sendSingleMessage(event: String, topic: String)(implicit id: RequestId): Future[Done] = {
+  def sendSingleMessage(event: String, topic: String, httpMethod: Option[HttpMethod] = None)(implicit id: RequestId): Future[Done] = {
     kafkaProducer
       .send(new ProducerRecord[String, String](topic, event), (metadata: RecordMetadata, exception: Exception) => {
         exception match {
           case e: Exception =>
+            MetricsFactory.incrementKafkaSendErrors
             logger.error("error in sending event {} to topic {}, error={}", event, topic, e)
             throw new Exception(e)
-          case _ => logger.debug("Message sent {} to kafka, offset {}", event, metadata.offset())
+          case _ =>
+            httpMethod.map { m => MetricsFactory.incrementKafkaNotificationsSent(m) }
+            logger.debug("Message sent {} to kafka, offset {}", event, metadata.offset())
         }
       }) match {
         case _ => Future(Done)

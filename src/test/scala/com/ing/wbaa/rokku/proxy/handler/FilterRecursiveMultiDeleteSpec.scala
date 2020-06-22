@@ -6,13 +6,14 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.ing.wbaa.rokku.proxy.handler.FilterRecursiveMultiDelete._
-import org.scalatest.{ AsyncWordSpec, DiagrammedAssertions }
+import org.scalatest.diagrams.Diagrams
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.ExecutionContext
 import scala.util.Random
 
-class FilterRecursiveMultiDeleteSpec extends AsyncWordSpec with DiagrammedAssertions {
+class FilterRecursiveMultiDeleteSpec extends AsyncWordSpec with Diagrams {
 
   implicit val system: ActorSystem = ActorSystem.create("test-system")
   override implicit val executionContext: ExecutionContext = system.dispatcher

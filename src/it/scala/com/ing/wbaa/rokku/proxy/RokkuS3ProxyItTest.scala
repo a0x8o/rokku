@@ -12,20 +12,22 @@ import com.amazonaws.services.securitytoken.model.GetSessionTokenRequest
 import com.ing.wbaa.rokku.proxy.config._
 import com.ing.wbaa.rokku.proxy.data.{RequestId, S3Request, User}
 import com.ing.wbaa.rokku.proxy.handler.parsers.RequestParser
-import com.ing.wbaa.rokku.proxy.handler.{FilterRecursiveListBucketHandler, RequestHandlerS3}
+import com.ing.wbaa.rokku.proxy.handler.{FilterRecursiveListBucketHandler, RequestHandlerS3Cache}
 import com.ing.wbaa.rokku.proxy.provider._
 import com.ing.wbaa.rokku.proxy.provider.aws.S3Client
 import com.ing.wbaa.rokku.proxy.queue.MemoryUserRequestQueue
 import com.ing.wbaa.testkit.RokkuFixtures
 import com.ing.wbaa.testkit.awssdk.{S3SdkHelpers, StsSdkHelpers}
 import com.ing.wbaa.testkit.oauth.{KeycloackToken, OAuth2TokenRequest}
-import org.scalatest.{Assertion, AsyncWordSpec, DiagrammedAssertions}
+import org.scalatest.Assertion
+import org.scalatest.diagrams.Diagrams
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Random
 
-class RokkuS3ProxyItTest extends AsyncWordSpec with DiagrammedAssertions
+class RokkuS3ProxyItTest extends AsyncWordSpec with Diagrams
   with S3SdkHelpers
   with StsSdkHelpers
   with RokkuFixtures
@@ -75,7 +77,7 @@ class RokkuS3ProxyItTest extends AsyncWordSpec with DiagrammedAssertions
     * @return Future[Assertion]
     */
   def withSdkToMockProxy(testCode: (AWSSecurityTokenService, Authority) => Future[Assertion]): Future[Assertion] = {
-    val proxy: RokkuS3Proxy = new RokkuS3Proxy with RequestHandlerS3
+    val proxy: RokkuS3Proxy = new RokkuS3Proxy with RequestHandlerS3Cache
       with FilterRecursiveListBucketHandler with AuthenticationProviderSTS
       with AuthorizationProviderRanger with LineageProviderAtlas with SignatureProviderAws
       with MessageProviderKafka with AuditLogProvider with MemoryUserRequestQueue with RequestParser {
@@ -208,6 +210,8 @@ class RokkuS3ProxyItTest extends AsyncWordSpec with DiagrammedAssertions
 
         val radosS3client = new S3Client {
           override protected[this] def storageS3Settings: StorageS3Settings = StorageS3Settings(testSystem)
+
+          override protected[this] implicit def executionContext: ExecutionContext = testSystem.dispatcher
         }
 
         import scala.concurrent.duration._
