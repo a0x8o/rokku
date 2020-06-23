@@ -5,15 +5,16 @@ import java.net.InetAddress
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.RawHeader
-import akka.stream.ActorMaterializer
 import com.ing.wbaa.rokku.proxy.config.KafkaSettings
-import com.ing.wbaa.rokku.proxy.data.{AwsAccessKey, AwsSecretKey, HeaderIPs, RequestId, User, UserAssumeRole, UserGroup, UserIps, UserName}
+import com.ing.wbaa.rokku.proxy.data._
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
-import org.scalatest.{Assertion, DiagrammedAssertions, WordSpecLike}
+import org.scalatest.Assertion
+import org.scalatest.diagrams.Diagrams
+import org.scalatest.wordspec.AnyWordSpecLike
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, TimeoutException}
 
-class LineageProviderAtlasItTest extends WordSpecLike with DiagrammedAssertions with EmbeddedKafka {
+class LineageProviderAtlasItTest extends AnyWordSpecLike with Diagrams with EmbeddedKafka {
 
   implicit val testSystem: ActorSystem = ActorSystem.create("test-system")
   implicit val requestId: RequestId = RequestId("test")
@@ -43,8 +44,6 @@ class LineageProviderAtlasItTest extends WordSpecLike with DiagrammedAssertions 
 
       override protected[this] implicit val executionContext: ExecutionContext = system.dispatcher
 
-      override protected[this] implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
-
       override val kafkaSettings: KafkaSettings = new KafkaSettings(testSystem.settings.config) {
         override val bootstrapServers: String = s"localhost:$testKafkaPort"
       }
@@ -59,7 +58,7 @@ class LineageProviderAtlasItTest extends WordSpecLike with DiagrammedAssertions 
         Thread.sleep(2000)
         createCustomTopic(createEventsTopic)
         apr.createLineageFromRequest(
-          fakeIncomingHttpRequest(HttpMethods.PUT, "/fakeBucket/fakeObject"), userSTS, remoteClientIP)
+          fakeIncomingHttpRequest(HttpMethods.PUT, "/fakeBucket/fakeObject").withHeaders(RawHeader("User-Agent", "aws-cli/1.16.68 Python/2.7")), userSTS, remoteClientIP)
         val message = consumeFirstStringMessageFrom(createEventsTopic)
         assert(message.contains("external_object_in/fakeObject"))
       }
@@ -70,7 +69,7 @@ class LineageProviderAtlasItTest extends WordSpecLike with DiagrammedAssertions 
       withRunningKafka {
         Thread.sleep(2000)
         apr.createLineageFromRequest(
-          fakeIncomingHttpRequest(HttpMethods.PUT, "/fakeBucket/fakeTags").withHeaders(RawHeader("rokku-metadata", "k1=v1")), userSTS, remoteClientIP)
+          fakeIncomingHttpRequest(HttpMethods.PUT, "/fakeBucket/fakeTags").withHeaders(RawHeader("rokku-metadata", "k1=v1"), RawHeader("User-Agent", "aws-cli/1.16.68 Python/2.7")), userSTS, remoteClientIP)
         val message = consumeFirstStringMessageFrom(createEventsTopic)
         assert(message.contains("{\"awsTags\":[{\"attributes\":{\"key\":\"k1\",\"value\":\"v1\"},\"typeName\":\"aws_tag\"}]"))
       }
@@ -81,7 +80,7 @@ class LineageProviderAtlasItTest extends WordSpecLike with DiagrammedAssertions 
       withRunningKafka {
         Thread.sleep(2000)
         apr.createLineageFromRequest(
-          fakeIncomingHttpRequest(HttpMethods.PUT, "/fakeBucket/fakeTags").withHeaders(RawHeader("rokku-classifications", "customerPII,secret")), userSTS, remoteClientIP)
+          fakeIncomingHttpRequest(HttpMethods.PUT, "/fakeBucket/fakeTags").withHeaders(RawHeader("rokku-classifications", "customerPII,secret"), RawHeader("User-Agent", "aws-cli/1.16.68 Python/2.7")), userSTS, remoteClientIP)
         val message = consumeFirstStringMessageFrom(createEventsTopic)
         assert(message.contains("\"classifications\":[{\"typeName\":\"customerPII\"},{\"typeName\":\"secret\"}]"))
       }
@@ -92,7 +91,7 @@ class LineageProviderAtlasItTest extends WordSpecLike with DiagrammedAssertions 
       withRunningKafka {
         Thread.sleep(2000)
         apr.createLineageFromRequest(
-          fakeIncomingHttpRequest(HttpMethods.GET, "/fakeBucket/fakeObject"), userSTS, remoteClientIP)
+          fakeIncomingHttpRequest(HttpMethods.GET, "/fakeBucket/fakeObject").withHeaders(RawHeader("User-Agent", "aws-cli/1.16.68 Python/2.7")), userSTS, remoteClientIP)
         val message = consumeFirstStringMessageFrom(createEventsTopic)
         assert(message.contains("external_object_out/fakeObject"))
       }
@@ -103,9 +102,19 @@ class LineageProviderAtlasItTest extends WordSpecLike with DiagrammedAssertions 
       withRunningKafka {
         Thread.sleep(2000)
         apr.createLineageFromRequest(
-          fakeIncomingHttpRequest(HttpMethods.DELETE, "/fakeBucket/fakeObject"), userSTS, remoteClientIP)
+          fakeIncomingHttpRequest(HttpMethods.DELETE, "/fakeBucket/fakeObject")withHeaders(RawHeader("User-Agent", "aws-cli/1.16.68 Python/2.7")), userSTS, remoteClientIP)
         val message = consumeFirstStringMessageFrom(createEventsTopic)
         assert(message.contains("fakeObject"))
+      }
+    }
+
+    "time out exception because the user agent is not whitelisted" in withLineageProviderAtlas() { apr =>
+      implicit val config = EmbeddedKafkaConfig(kafkaPort = testKafkaPort)
+      withRunningKafka {
+        Thread.sleep(2000)
+        apr.createLineageFromRequest(
+          fakeIncomingHttpRequest(HttpMethods.DELETE, "/fakeBucket/fakeObject")withHeaders(RawHeader("User-Agent", "no-aws-cli/1.16.68 Python/2.7")), userSTS, remoteClientIP)
+        assertThrows[TimeoutException](consumeFirstStringMessageFrom(createEventsTopic))
       }
     }
   }

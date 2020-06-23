@@ -5,17 +5,16 @@ import akka.http.scaladsl.model._
 import com.ing.wbaa.rokku.proxy.data._
 import com.ing.wbaa.rokku.proxy.handler.LoggerHandlerWithId
 import com.ing.wbaa.rokku.proxy.handler.parsers.RequestParser.AWSRequestType
+import com.ing.wbaa.rokku.proxy.metrics.MetricsFactory
+import com.ing.wbaa.rokku.proxy.util.S3Utils
 import com.typesafe.config.ConfigFactory
 
-import scala.concurrent.Future
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Failure
-import scala.util.matching.Regex
 
 trait PostRequestActions {
 
-  import PostRequestActions._
-
-  import scala.concurrent.ExecutionContext.Implicits.global
+  protected[this] implicit def executionContext: ExecutionContext
 
   private val logger = new LoggerHandlerWithId
 
@@ -27,7 +26,7 @@ trait PostRequestActions {
 
   protected[this] def emitEvent(s3Request: S3Request, method: HttpMethod, principalId: String, awsRequest: AWSRequestType)(implicit id: RequestId): Future[Done]
 
-  protected[this] def setDefaultBucketAclAndPolicy(bucketName: String): Future[Unit]
+  protected[this] def setDefaultBucketAclAndPolicy(bucketName: String)(implicit id: RequestId): Future[Unit]
 
   protected[this] def awsRequestFromRequest(request: HttpRequest): AWSRequestType
 
@@ -44,16 +43,20 @@ trait PostRequestActions {
       userSTS: User)(implicit id: RequestId): Future[Done] =
     httpRequest.method match {
       case HttpMethods.POST | HttpMethods.PUT | HttpMethods.DELETE if bucketNotificationEnabled && (response.status == StatusCodes.OK || response.status == StatusCodes.NoContent) =>
+        MetricsFactory.incrementObjectsUploaded(httpRequest.method)
         emitEvent(s3Request, httpRequest.method, userSTS.userName.value, awsRequestFromRequest(httpRequest))
       case _ => Future.successful(Done)
     }
 
-  private[this] def updateBucketPermissions(httpRequest: HttpRequest, s3Request: S3Request): Future[Done] = {
-    lazy val bucketName = bucketRegex findFirstMatchIn httpRequest.uri.path.toString() map (_.group(1))
-    if (httpRequest.method == HttpMethods.PUT &&
-      bucketName.isDefined) {
-      setDefaultBucketAclAndPolicy(bucketName.get) map (_ => Done)
+  private[this] def updateBucketPermissions(httpRequest: HttpRequest, s3Request: S3Request)(implicit id: RequestId): Future[Done] = {
+    val fullPath = S3Utils.getPathNameFromUrlOrHost(httpRequest)
+    val bucketName = S3Utils.getBucketName(fullPath)
+    logger.debug("trying updateBucketPermissions for bucket={}, fullPath={}", bucketName, fullPath)
+    val isPathOnlyWithBucketName = fullPath.split("/").length == 2
+    if (httpRequest.method == HttpMethods.PUT && isPathOnlyWithBucketName) {
+      setDefaultBucketAclAndPolicy(bucketName) map (_ => Done)
     } else {
+      logger.debug("not create bucket command so updateBucketPermissions is not needed")
       Future.successful(Done)
     }
   }
@@ -74,8 +77,4 @@ trait PostRequestActions {
       case Failure(err) => logger.error(s"Error while setting bucket permissions: $err")
     })
   }
-}
-
-object PostRequestActions {
-  private val bucketRegex: Regex = new Regex("^/([a-zA-Z0-9]+)/?$")
 }

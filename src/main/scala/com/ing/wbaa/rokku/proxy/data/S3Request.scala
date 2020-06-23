@@ -3,6 +3,7 @@ package com.ing.wbaa.rokku.proxy.data
 import akka.http.scaladsl.model.RemoteAddress.Unknown
 import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.model.{ HttpMethod, MediaType, MediaTypes, RemoteAddress }
+import com.ing.wbaa.rokku.proxy.util.S3Utils
 import com.typesafe.scalalogging.LazyLogging
 
 /**
@@ -25,25 +26,19 @@ case class S3Request(
 }
 
 object S3Request extends LazyLogging {
-  def extractObject(pathString: String): Option[String] =
-    if (pathString.endsWith("/") || pathString.split("/").length < 3) {
-      None
-    } else {
-      Some(pathString.split("/").last)
-    }
 
   def apply(credential: AwsRequestCredential, path: Path, httpMethod: HttpMethod,
       clientIPAddress: RemoteAddress, headerIPs: HeaderIPs, mediaType: MediaType): S3Request = {
 
     val pathString = path.toString()
-    val s3path = if (path.length > 1) { Some(pathString) } else { None }
-    val s3Object = extractObject(pathString)
+    val s3path = S3Utils.getS3PathWithoutBucketName(pathString)
+    val s3Object = S3Utils.getS3FullObjectPath(pathString)
 
     val accessType = httpMethod.value match {
       case "GET"    => Read(httpMethod.value)
       case "HEAD"   => Head(httpMethod.value)
-      case "PUT"    => Write(httpMethod.value)
-      case "POST"   => Write(httpMethod.value)
+      case "PUT"    => Put(httpMethod.value)
+      case "POST"   => Post(httpMethod.value)
       case "DELETE" => Delete(httpMethod.value)
       case _ =>
         logger.debug("HttpMethod not supported")
