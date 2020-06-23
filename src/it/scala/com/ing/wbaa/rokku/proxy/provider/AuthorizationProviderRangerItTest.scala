@@ -5,12 +5,14 @@ import java.net.InetAddress
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.RemoteAddress
 import com.ing.wbaa.rokku.proxy.config.RangerSettings
-import com.ing.wbaa.rokku.proxy.data.{AwsAccessKey, AwsRequestCredential, AwsSecretKey, AwsSessionToken, Delete, HeaderIPs, NoAccess, Read, RequestId, S3Request, User, UserAssumeRole, UserGroup, UserName, Write}
-import org.scalatest.{Assertion, AsyncWordSpec, DiagrammedAssertions}
+import com.ing.wbaa.rokku.proxy.data._
+import org.scalatest.Assertion
+import org.scalatest.diagrams.Diagrams
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
-class AuthorizationProviderRangerItTest extends AsyncWordSpec with DiagrammedAssertions {
+class AuthorizationProviderRangerItTest extends AsyncWordSpec with Diagrams {
   final implicit val testSystem: ActorSystem = ActorSystem.create("test-system")
 
   implicit val requestId: RequestId = RequestId("test")
@@ -25,6 +27,14 @@ class AuthorizationProviderRangerItTest extends AsyncWordSpec with DiagrammedAss
   val user = User(
     UserName("testuser"),
     Set(UserGroup("testgroup")),
+    AwsAccessKey("accesskey"),
+    AwsSecretKey("secretkey"),
+    UserAssumeRole("")
+  )
+
+  val adminUser = User(
+    UserName("rokkuadmin"),
+    Set.empty,
     AwsAccessKey("accesskey"),
     AwsSecretKey("secretkey"),
     UserAssumeRole("")
@@ -73,7 +83,7 @@ class AuthorizationProviderRangerItTest extends AsyncWordSpec with DiagrammedAss
       }
 
       "doesn't authorize for requests that are not supposed to be (Write)" in withAuthorizationProviderRanger() { apr =>
-        assert(!apr.isUserAuthorizedForRequest(s3Request.copy(accessType = Write(), s3Object = Some("object"),
+        assert(!apr.isUserAuthorizedForRequest(s3Request.copy(accessType = Put(), s3Object = Some("object"),
           clientIPAddress = clientIPAddress, headerIPs = headerIPs), user))
       }
 
@@ -105,17 +115,27 @@ class AuthorizationProviderRangerItTest extends AsyncWordSpec with DiagrammedAss
           accessType = Read(), clientIPAddress = clientIPAddress, headerIPs = headerIPs), user))
       }
 
-      "does authorize allow-create-buckets set to true" in withAuthorizationProviderRanger(new RangerSettings(testSystem.settings.config) {
-        override val createBucketsEnabled: Boolean = true
+      "does authorize creating bucket for an admin" in withAuthorizationProviderRanger(new RangerSettings(testSystem.settings.config) {
       }) { apr =>
-        assert(apr.isUserAuthorizedForRequest(s3Request.copy(s3Object = None, accessType = Write(),
+        assert(apr.isUserAuthorizedForRequest(s3Request.copy(s3Object = None, accessType = Put(),
+          clientIPAddress = clientIPAddress, headerIPs = headerIPs), adminUser))
+      }
+
+      "does authorize deleting bucket for an admin" in withAuthorizationProviderRanger(new RangerSettings(testSystem.settings.config) {
+      }) { apr =>
+        assert(apr.isUserAuthorizedForRequest(s3Request.copy(s3Object = None, accessType = Delete(),
+          clientIPAddress = clientIPAddress, headerIPs = headerIPs), adminUser))
+      }
+
+      "does not authorize creating bucket for a user" in withAuthorizationProviderRanger(new RangerSettings(testSystem.settings.config) {
+      }) { apr =>
+        assert(!apr.isUserAuthorizedForRequest(s3Request.copy(s3Object = None, accessType = Put(),
           clientIPAddress = clientIPAddress, headerIPs = headerIPs), user))
       }
 
-      "does authorize delete buckets set to true" in withAuthorizationProviderRanger(new RangerSettings(testSystem.settings.config) {
-        override val createBucketsEnabled: Boolean = true
+      "does not authorize deleting bucket for a user" in withAuthorizationProviderRanger(new RangerSettings(testSystem.settings.config) {
       }) { apr =>
-        assert(apr.isUserAuthorizedForRequest(s3Request.copy(s3Object = None, accessType = Delete(),
+        assert(!apr.isUserAuthorizedForRequest(s3Request.copy(s3Object = None, accessType = Delete(),
           clientIPAddress = clientIPAddress, headerIPs = headerIPs), user))
       }
 
@@ -168,14 +188,14 @@ class AuthorizationProviderRangerItTest extends AsyncWordSpec with DiagrammedAss
       "does allow write homedir in the bucket" in withAuthorizationProviderRanger() { apr =>
         assert(apr.isUserAuthorizedForRequest(
           s3Request.copy(s3BucketPath = Some("/home/testuser"), s3Object = Some("object1"),
-            accessType = Write(), clientIPAddress = clientIPAddress,
+            accessType = Put(), clientIPAddress = clientIPAddress,
             headerIPs = headerIPs.copy(`Remote-Address` = Some(RemoteAddress.Unknown))), user))
       }
 
       "doesn't allow write in non homedir in the bucket" in withAuthorizationProviderRanger() { apr =>
         assert(!apr.isUserAuthorizedForRequest(
           s3Request.copy(s3BucketPath = Some("/home/testuser1"), s3Object = Some("object1"),
-            accessType = Write(), clientIPAddress = clientIPAddress,
+            accessType = Put(), clientIPAddress = clientIPAddress,
             headerIPs = headerIPs.copy(`Remote-Address` = Some(RemoteAddress.Unknown))), user))
       }
 

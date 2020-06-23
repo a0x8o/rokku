@@ -5,14 +5,18 @@ import com.ing.wbaa.rokku.proxy.config.StorageS3Settings
 import com.ing.wbaa.rokku.proxy.data.{RequestId, User, UserRawJson}
 import com.ing.wbaa.rokku.proxy.handler.radosgw.RadosGatewayHandler
 import com.ing.wbaa.rokku.proxy.provider.aws.S3Client
-import org.scalatest.{DiagrammedAssertions, WordSpec}
+import org.scalatest.diagrams.Diagrams
+import org.scalatest.wordspec.AnyWordSpec
 import org.twonote.rgwadmin4j.{RgwAdmin, RgwAdminBuilder}
 
+import scala.concurrent.ExecutionContext
 import scala.util.Random
 
-class RadosGatewayHandlerItTest extends WordSpec with DiagrammedAssertions with RadosGatewayHandler with S3Client {
+class RadosGatewayHandlerItTest extends AnyWordSpec with Diagrams with RadosGatewayHandler with S3Client {
 
   override protected[this] implicit def system: ActorSystem = ActorSystem("test-system")
+
+  override protected[this] implicit def executionContext: ExecutionContext = system.dispatcher
 
   override protected[this] def storageS3Settings: StorageS3Settings = StorageS3Settings(system)
 
