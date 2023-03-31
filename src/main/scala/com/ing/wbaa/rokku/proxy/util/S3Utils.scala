@@ -1,17 +1,28 @@
 package com.ing.wbaa.rokku.proxy.util
 
+<<<<<<< HEAD
 import akka.http.scaladsl.model.{ HttpRequest, Uri }
+=======
+import akka.http.scaladsl.model.HttpRequest
+>>>>>>> 5cfe623 (Merge pull request #98 from ing-bank/feature/virual-hosted-style)
 
 object S3Utils {
 
   /**
    * To support "path" and "virtual" s3 access style we need to check if the bucket name is in the hostname or url
    * The method assumed that the hostname contains ".s3" and everything before ".s3" is the bucket name.
+<<<<<<< HEAD
    *
    * @param httpRequest
    * @return path to an object
    */
   def getPathNameFromUrlOrHost(httpRequest: HttpRequest): String = {
+=======
+   * @param httpRequest
+   * @return path to an object
+   */
+  def getPathName(httpRequest: HttpRequest): String = {
+>>>>>>> 5cfe623 (Merge pull request #98 from ing-bank/feature/virual-hosted-style)
     val host = httpRequest.uri.authority.host.toString()
     val path = if (httpRequest.uri.path.endsWithSlash) httpRequest.uri.path.toString().dropRight(1)
     else httpRequest.uri.path.toString()
@@ -23,6 +34,7 @@ object S3Utils {
     }
   }
 
+<<<<<<< HEAD
   def getBucketName(fullPath: String): String =
     if (fullPath.nonEmpty)
       fullPath.split("/").filter(_.nonEmpty).head
@@ -82,4 +94,6 @@ object S3Utils {
     }
   }
 
+=======
+>>>>>>> 5cfe623 (Merge pull request #98 from ing-bank/feature/virual-hosted-style)
 }

@@ -16,7 +16,10 @@ class RokkuS3ProxyVirtualHostedItTest extends RokkuS3ProxyItTest {
 
     AmazonS3ClientBuilder
       .standard()
+<<<<<<< HEAD
       .disableChunkedEncoding()
+=======
+>>>>>>> 5cfe623 (Merge pull request #98 from ing-bank/feature/virual-hosted-style)
       .withClientConfiguration(cliConf)
       .withCredentials(new AWSStaticCredentialsProvider(credentials))
       .withPathStyleAccessEnabled(false)

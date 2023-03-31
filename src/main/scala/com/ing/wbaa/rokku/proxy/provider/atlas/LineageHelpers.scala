@@ -49,8 +49,13 @@ trait LineageHelpers extends EventProducer {
   }
 
   def getLineageHeaders(httpRequest: HttpRequest)(implicit id: RequestId): LineageHeaders = {
+<<<<<<< HEAD
     val fullPath = S3Utils.getPathNameFromUrlOrHost(httpRequest)
     val bucketName = S3Utils.getBucketName(fullPath)
+=======
+    val fullPath = S3Utils.getPathName(httpRequest)
+    val bucketName = getBucketName(fullPath)
+>>>>>>> 5cfe623 (Merge pull request #98 from ing-bank/feature/virual-hosted-style)
     val pseudoDir = getPathDir(fullPath)
     val bucketObjectFQN = getObjectName(fullPath)
 
