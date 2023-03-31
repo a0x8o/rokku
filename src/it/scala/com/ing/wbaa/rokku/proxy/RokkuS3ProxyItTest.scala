@@ -12,7 +12,7 @@ import com.amazonaws.services.securitytoken.model.GetSessionTokenRequest
 import com.ing.wbaa.rokku.proxy.config._
 import com.ing.wbaa.rokku.proxy.data.{RequestId, S3Request, User}
 import com.ing.wbaa.rokku.proxy.handler.parsers.RequestParser
-import com.ing.wbaa.rokku.proxy.handler.{FilterRecursiveListBucketHandler, RequestHandlerS3Cache}
+import com.ing.wbaa.rokku.proxy.handler.{FilterRecursiveListBucketHandler, RequestHandlerS3}
 import com.ing.wbaa.rokku.proxy.provider._
 import com.ing.wbaa.rokku.proxy.queue.MemoryUserRequestQueue
 import com.ing.wbaa.testkit.RokkuFixtures
@@ -76,7 +76,7 @@ class RokkuS3ProxyItTest extends AsyncWordSpec with Diagrams
     * @return Future[Assertion]
     */
   def withSdkToMockProxy(testCode: (AWSSecurityTokenService, Authority) => Future[Assertion]): Future[Assertion] = {
-    val proxy: RokkuS3Proxy = new RokkuS3Proxy with RequestHandlerS3Cache
+    val proxy: RokkuS3Proxy = new RokkuS3Proxy with RequestHandlerS3
       with FilterRecursiveListBucketHandler with AuthenticationProviderSTS
       with AuthorizationProviderRanger with SignatureProviderAws
       with MessageProviderKafka with AuditLogProvider with MemoryUserRequestQueue with RequestParser {
@@ -196,40 +196,6 @@ class RokkuS3ProxyItTest extends AsyncWordSpec with Diagrams
 //      }
 //    }
 
-<<<<<<< HEAD
-=======
-    "set the default bucket ACL on bucket creation" in withSdkToMockProxy { (stsSdk, s3ProxyAuthority) =>
-      retrieveKeycloackToken(validKeycloakCredentialsTestuser) flatMap { keycloackToken =>
-        val s3Client = getSdk(stsSdk, s3ProxyAuthority, keycloackToken)
-
-
-        s3Client.createBucket("acltest")
-
-        // This pause is necessary because the policy is set asynchronously
-        Thread.sleep(5000)
-
-        val radosS3client = new S3Client {
-          override protected[this] def storageS3Settings: StorageS3Settings = StorageS3Settings(testSystem)
-
-          override protected[this] implicit def executionContext: ExecutionContext = testSystem.dispatcher
-        }
-
-        import scala.concurrent.duration._
-        val testBucketACL = Await.result(radosS3client.getBucketAcl("acltest"), 5.seconds)
-
-        val grants = testBucketACL.getGrantsAsList.asScala
-
-        assert(!grants.exists(g => GroupGrantee.AllUsers.equals(g.getGrantee) && Permission.Read == g.getPermission))
-        assert(!grants.exists(g => GroupGrantee.AllUsers.equals(g.getGrantee) && Permission.Write == g.getPermission))
-        assert(grants.exists(g => GroupGrantee.AuthenticatedUsers.equals(g.getGrantee) && Permission.Read == g.getPermission))
-        assert(grants.exists(g => GroupGrantee.AuthenticatedUsers.equals(g.getGrantee) && Permission.Write == g.getPermission))
-
-        val testBucketPolicy = Await.result(radosS3client.getBucketPolicy(bucketName = "acltest"), 5.seconds)
-        val policy = testBucketPolicy.getPolicyText
-        assert(policy == """{"Statement": [{"Action": ["s3:GetObject"],"Effect": "Allow","Principal": "*","Resource": ["arn:aws:s3:::*"]}],"Version": "2012-10-17"}""")
-      }
-    }
->>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
 
     "usertwo can read data created by userone from a shared bucket" in withSdkToMockProxy { (stsSdk, s3ProxyAuthority) =>
       val sharedBucket = "shared"

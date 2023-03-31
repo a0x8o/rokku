@@ -1,40 +1,17 @@
 package com.ing.wbaa.rokku.proxy.util
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 import akka.http.scaladsl.model.{ HttpRequest, Uri }
-=======
-import akka.http.scaladsl.model.HttpRequest
->>>>>>> 5cfe623 (Merge pull request #98 from ing-bank/feature/virual-hosted-style)
-=======
-import akka.http.scaladsl.model.{ HttpRequest, Uri }
->>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
 
 object S3Utils {
 
   /**
    * To support "path" and "virtual" s3 access style we need to check if the bucket name is in the hostname or url
    * The method assumed that the hostname contains ".s3" and everything before ".s3" is the bucket name.
-<<<<<<< HEAD
-<<<<<<< HEAD
    *
    * @param httpRequest
    * @return path to an object
    */
   def getPathNameFromUrlOrHost(httpRequest: HttpRequest): String = {
-=======
-   * @param httpRequest
-   * @return path to an object
-   */
-  def getPathName(httpRequest: HttpRequest): String = {
->>>>>>> 5cfe623 (Merge pull request #98 from ing-bank/feature/virual-hosted-style)
-=======
-   *
-   * @param httpRequest
-   * @return path to an object
-   */
-  def getPathNameFromUrlOrHost(httpRequest: HttpRequest): String = {
->>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
     val host = httpRequest.uri.authority.host.toString()
     val path = if (httpRequest.uri.path.endsWithSlash) httpRequest.uri.path.toString().dropRight(1)
     else httpRequest.uri.path.toString()
@@ -46,14 +23,8 @@ object S3Utils {
     }
   }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
   def getBucketName(fullPath: String): String =
     if (fullPath.nonEmpty)
-=======
-  def getBucketName(fullPath: String): String =
-    if (fullPath.length > 0)
->>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
       fullPath.split("/").filter(_.nonEmpty).head
     else ""
 
@@ -111,9 +82,4 @@ object S3Utils {
     }
   }
 
-<<<<<<< HEAD
-=======
->>>>>>> 5cfe623 (Merge pull request #98 from ing-bank/feature/virual-hosted-style)
-=======
->>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
 }

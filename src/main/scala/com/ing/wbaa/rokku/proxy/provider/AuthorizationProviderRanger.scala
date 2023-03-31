@@ -111,16 +111,12 @@ trait AuthorizationProviderRanger {
 
       // create / delete bucket operation
       case S3Request(_, Some(bucket), None, accessType, _, _, _) if (accessType.isInstanceOf[Write] || accessType.isInstanceOf[Delete]) =>
-<<<<<<< HEAD
         if (rangerSettings.createDeleteBucketsEnabled) {
           isAuthorisedByRanger("/")
         } else {
           logger.info("Creating/Deleting bucket is disabled - request={}", request)
           false
         }
-=======
-        isAuthorisedByRanger("/")
->>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
 
       // list buckets
       case S3Request(_, None, None, accessType, _, _, _) if accessType.isInstanceOf[Read] =>

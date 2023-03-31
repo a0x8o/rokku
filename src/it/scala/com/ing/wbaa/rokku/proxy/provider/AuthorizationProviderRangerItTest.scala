@@ -5,10 +5,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.model.RemoteAddress
 import com.ing.wbaa.rokku.proxy.config.RangerSettings
 import com.ing.wbaa.rokku.proxy.data._
-<<<<<<< HEAD
 import com.ing.wbaa.rokku.proxy.handler.exception.RokkuListingBucketsException
-=======
->>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
 import org.scalatest.Assertion
 import org.scalatest.diagrams.Diagrams
 import org.scalatest.wordspec.AsyncWordSpec
@@ -118,7 +115,6 @@ class AuthorizationProviderRangerItTest extends AsyncWordSpec with Diagrams {
           accessType = Read(), clientIPAddress = clientIPAddress, headerIPs = headerIPs), user))
       }
 
-<<<<<<< HEAD
       "does not authorize allow-create-delete-buckets set to false" in withAuthorizationProviderRanger(new RangerSettings(testSystem.settings.config) {
         override val createDeleteBucketsEnabled: Boolean = false
       }) { apr =>
@@ -148,28 +144,6 @@ class AuthorizationProviderRangerItTest extends AsyncWordSpec with Diagrams {
 
       "does not authorize deleting bucket for a user" in withAuthorizationProviderRanger(new RangerSettings(testSystem.settings.config) {
       }) { apr =>
-=======
-      "does authorize creating bucket for an admin" in withAuthorizationProviderRanger(new RangerSettings(testSystem.settings.config) {
-      }) { apr =>
-        assert(apr.isUserAuthorizedForRequest(s3Request.copy(s3Object = None, accessType = Put(),
-          clientIPAddress = clientIPAddress, headerIPs = headerIPs), adminUser))
-      }
-
-      "does authorize deleting bucket for an admin" in withAuthorizationProviderRanger(new RangerSettings(testSystem.settings.config) {
-      }) { apr =>
-        assert(apr.isUserAuthorizedForRequest(s3Request.copy(s3Object = None, accessType = Delete(),
-          clientIPAddress = clientIPAddress, headerIPs = headerIPs), adminUser))
-      }
-
-      "does not authorize creating bucket for a user" in withAuthorizationProviderRanger(new RangerSettings(testSystem.settings.config) {
-      }) { apr =>
-        assert(!apr.isUserAuthorizedForRequest(s3Request.copy(s3Object = None, accessType = Put(),
-          clientIPAddress = clientIPAddress, headerIPs = headerIPs), user))
-      }
-
-      "does not authorize deleting bucket for a user" in withAuthorizationProviderRanger(new RangerSettings(testSystem.settings.config) {
-      }) { apr =>
->>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
         assert(!apr.isUserAuthorizedForRequest(s3Request.copy(s3Object = None, accessType = Delete(),
           clientIPAddress = clientIPAddress, headerIPs = headerIPs), user))
       }

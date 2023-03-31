@@ -1,10 +1,6 @@
 package com.ing.wbaa.rokku.proxy.handler.parsers
 
-<<<<<<< HEAD
 import akka.http.scaladsl.model.{ HttpMethod, HttpMethods, HttpRequest, MediaTypes, Uri }
-=======
-import akka.http.scaladsl.model.{ HttpMethods, HttpRequest, MediaTypes }
->>>>>>> 8e6b18e (Merge pull request #152 from ing-bank/feature/stsRequestTime)
 import com.ing.wbaa.rokku.proxy.handler.parsers.RequestParser._
 import com.ing.wbaa.rokku.proxy.util.S3Utils
 
