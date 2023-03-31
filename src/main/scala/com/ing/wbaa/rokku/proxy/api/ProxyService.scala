@@ -9,7 +9,7 @@ import com.ing.wbaa.rokku.proxy.api.directive.ProxyDirectives
 import com.ing.wbaa.rokku.proxy.data._
 import com.ing.wbaa.rokku.proxy.handler.FilterRecursiveMultiDelete.exctractMultideleteObjectsFlow
 import com.ing.wbaa.rokku.proxy.handler.LoggerHandlerWithId
-import com.ing.wbaa.rokku.proxy.handler.exception.RokkuThrottlingException
+import com.ing.wbaa.rokku.proxy.handler.exception.{ RokkuListingBucketsException, RokkuNamespaceBucketNotFoundException, RokkuThrottlingException }
 import com.ing.wbaa.rokku.proxy.handler.parsers.RequestParser.AWSRequestType
 import com.ing.wbaa.rokku.proxy.provider.aws.AwsErrorCodes
 
@@ -49,43 +49,49 @@ trait ProxyService {
 
   protected[this] def awsRequestFromRequest(request: HttpRequest): AWSRequestType
 
-  implicit def rokkuExceptionHandler: ExceptionHandler =
+  private val rokkuExceptionHandler: ExceptionHandler =
     ExceptionHandler {
+      case _: RokkuNamespaceBucketNotFoundException =>
+        complete(StatusCodes.NotFound -> AwsErrorCodes.response(StatusCodes.NotFound))
       case _: RokkuThrottlingException =>
         complete(StatusCodes.ServiceUnavailable -> AwsErrorCodes.response(StatusCodes.ServiceUnavailable))
+      case _: RokkuListingBucketsException =>
+        complete(StatusCodes.MethodNotAllowed -> AwsErrorCodes.response(StatusCodes.MethodNotAllowed))
     }
 
-  val proxyServiceRoute: Route =
-
-    metricDuration {
-      implicit val requestId: RequestId = RequestId(UUID.randomUUID().toString)
-      withoutSizeLimit {
-        extractRequest { httpRequest =>
-          extracts3Request { s3Request =>
-            val requestStartTime = System.nanoTime()
-            onComplete(areCredentialsActive(s3Request.credential)) {
-              case Success(Some(userSTS: User)) =>
-                logger.info("STS credentials active for request, user retrieved: {} (response time {})", userSTS, System.nanoTime() - requestStartTime)
-                onComplete(processRequestForValidUser(httpRequest, s3Request, userSTS)) {
-                  case Success(r) => r
-                  case Failure(exception) =>
-                    implicit val returnStatusCode: StatusCodes.ClientError = StatusCodes.Forbidden
-                    logger.error("An error occurred while processing request for valid user ex={}", exception)
-                    complete(returnStatusCode -> AwsErrorCodes.response(returnStatusCode))
-                }
-              case Success(None) =>
-                implicit val returnStatusCode: StatusCodes.ClientError = StatusCodes.Forbidden
-                logger.warn("STS credentials not active: {} (response time {})", s3Request, System.nanoTime() - requestStartTime)
-                complete(returnStatusCode -> AwsErrorCodes.response(returnStatusCode))
-              case Failure(exception) =>
-                implicit val returnStatusCode: StatusCodes.ServerError = StatusCodes.InternalServerError
-                logger.error("An error occurred when checking credentials with STS service ex={} (response time {})", exception, System.nanoTime() - requestStartTime)
-                complete(returnStatusCode -> AwsErrorCodes.response(returnStatusCode))
+  val proxyServiceRoute: Route = {
+    handleExceptions(rokkuExceptionHandler) {
+      metricDuration {
+        implicit val requestId: RequestId = RequestId(UUID.randomUUID().toString)
+        withoutSizeLimit {
+          extractRequest { httpRequest =>
+            extracts3Request { s3Request =>
+              val requestStartTime = System.nanoTime()
+              onComplete(areCredentialsActive(s3Request.credential)) {
+                case Success(Some(userSTS: User)) =>
+                  logger.info("STS credentials active for request, user retrieved: {} (response time {})", userSTS, System.nanoTime() - requestStartTime)
+                  onComplete(processRequestForValidUser(httpRequest, s3Request, userSTS)) {
+                    case Success(r) => r
+                    case Failure(exception) =>
+                      implicit val returnStatusCode: StatusCodes.ClientError = StatusCodes.Forbidden
+                      logger.error("An error occurred while processing request for valid user ex={}", exception)
+                      complete(returnStatusCode -> AwsErrorCodes.response(returnStatusCode))
+                  }
+                case Success(None) =>
+                  implicit val returnStatusCode: StatusCodes.ClientError = StatusCodes.Forbidden
+                  logger.warn("STS credentials not active: {} (response time {})", s3Request, System.nanoTime() - requestStartTime)
+                  complete(returnStatusCode -> AwsErrorCodes.response(returnStatusCode))
+                case Failure(exception) =>
+                  implicit val returnStatusCode: StatusCodes.ServerError = StatusCodes.InternalServerError
+                  logger.error("An error occurred when checking credentials with STS service ex={} (response time {})", exception, System.nanoTime() - requestStartTime)
+                  complete(returnStatusCode -> AwsErrorCodes.response(returnStatusCode))
+              }
             }
           }
         }
       }
     }
+  }
 
   private def checkExtractedPostContents(httpRequest: HttpRequest, s3Request: S3Request, userSTS: User)(implicit id: RequestId): Future[Route] = {
     import scala.concurrent.duration._
@@ -93,7 +99,7 @@ trait ProxyService {
     // we need to materialize here to avoid error - failed to materialize stream more than once, when http client in handler will
     // try to send the same entity to s3
     // also this prevents line spits to chunks for large requests
-    httpRequest.entity.toStrict(3.seconds).flatMap { strictE =>
+    httpRequest.entity.toStrict(5.seconds).flatMap { strictE =>
       exctractMultideleteObjectsFlow(strictE.dataBytes).map { s3Objects =>
         s3Objects.map { s3Object =>
           val bucket = s3Request.s3BucketPath.getOrElse("")
@@ -101,7 +107,7 @@ trait ProxyService {
         }
       }.map { permittedObjects =>
         if (permittedObjects.nonEmpty && permittedObjects.contains(false)) {
-          implicit val returnStatusCode: StatusCodes.ClientError = StatusCodes.Forbidden
+          implicit val returnStatusCode: StatusCodes.ClientError = StatusCodes.Unauthorized
           logger.warn("Multidelete - one of objects not allowed to be accessed")
           complete(returnStatusCode -> AwsErrorCodes.response(returnStatusCode))
         } else {
@@ -132,7 +138,7 @@ trait ProxyService {
         val rawQueryString = httpRequest.uri.rawQueryString.getOrElse("")
         val isMultideletePost =
           (httpRequest.entity.contentType.mediaType == MediaTypes.`application/xml` || httpRequest.entity.contentType.mediaType == MediaTypes.`application/octet-stream`) &&
-            httpRequest.method == HttpMethods.POST && rawQueryString == "delete"
+            httpRequest.method == HttpMethods.POST && (rawQueryString == "delete" || rawQueryString.contains("delete="))
 
         if (isMultideletePost) {
           checkExtractedPostContents(
